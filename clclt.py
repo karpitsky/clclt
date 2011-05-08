@@ -117,7 +117,7 @@ class TwitterHandler:
 
         req = oauth.Request.from_consumer_and_token(self._oauth_consumer,
                                                     token=self._oauth_token,
-		                                            http_method=http_method,
+		                                    http_method=http_method,
                                                     http_url=url, parameters=parameters)
 
         req.sign_request(self._signature_method_hmac_sha1, self._oauth_consumer, self._oauth_token)
@@ -297,4 +297,3 @@ if __name__ == '__main__':
     c.do_calculate()
 
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
-
