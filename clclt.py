@@ -297,3 +297,4 @@ if __name__ == '__main__':
     c.do_calculate()
 
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
+
