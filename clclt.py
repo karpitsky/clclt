@@ -50,6 +50,7 @@ class TwitterHandler:
         uids.extend(user_id)
         parameters['user_id'] = ','.join(["%s" % u for u in uids])
         _json = self._FetchUrl(url, parameters=parameters)
+        print _json
         data = json.loads(_json)
         error = self._ParseError(data)
         if error is not None:
@@ -74,6 +75,8 @@ class TwitterHandler:
         url  = 'https://api.twitter.com/1/direct_messages/new.json'
         data = {'text': text, 'user': user}
         _json = self._FetchUrl(url, post_data=data)
+        print data
+        print _json
         return _json
 
     def PostUpdate(self, status):
@@ -147,11 +150,19 @@ class TwitterHandler:
         return url_data
 
 class FilesHandler:
-    def get_json_from_file(self, file):
+    def get_json_from_file(self, file, user_file=0):
         try:
             json_data = open(file)
             try:
                 data = json.load(json_data)
+                if user_file == 1:
+                    data['sub'] = data.get("sub", "follow")
+                    data['dm'] = data.get("dm", "public")
+                    for i in ["y", "f", "s"]:
+                        if i in data:
+                            pass
+                        else:
+                            data[i] = 0
             except:
                 data = {}
                 data['sub'] = "follow"
@@ -161,6 +172,7 @@ class FilesHandler:
                 data['f'] = 0
             json_data.close()
         except:
+            print "get_json_from_file error"
             exit()
         return data
     
@@ -168,7 +180,7 @@ class FilesHandler:
         user_file = ROOT_PATH + '/data/' + str(user_id) + ".json"
         if not os.path.exists(user_file):
             open(user_file, 'w').close()
-        return self.get_json_from_file(user_file)
+        return self.get_json_from_file(user_file, 1)
 
     def save_info_to_file(self, user_id, user_data):
         user_file = ROOT_PATH + '/data/' + str(user_id) + ".json"
@@ -227,7 +239,7 @@ class Calculate:
         req_count = ceil(users_count/100.0)
         i = 0
         while i < req_count:
-            mod_req = self.requests % 350
+            mod_req = self.requests % 200
             if mod_req == 0:
                 self.bot += 1
                 self.th = TwitterHandler(self.bot)
