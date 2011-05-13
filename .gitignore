@@ -1,4 +1,3 @@
-data/*
-template/*
 ids.json
-settings*
+settings.py
+settings.pyc
