@@ -239,7 +239,7 @@ class Calculate:
         req_count = ceil(users_count/100.0)
         i = 0
         while i < req_count:
-            mod_req = self.requests % 200
+            mod_req = self.requests % 350
             if mod_req == 0:
                 self.bot += 1
                 self.th = TwitterHandler(self.bot)
