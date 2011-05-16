@@ -69,7 +69,7 @@ class TwitterHandler:
         if error is not None:
             print error
             exit()
-        return data
+        return data['ids']
 
     def PostDirectMessage(self, user, text):
         url  = 'https://api.twitter.com/1/direct_messages/new.json'
