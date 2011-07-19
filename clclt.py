@@ -50,12 +50,12 @@ class TwitterHandler:
         uids.extend(user_id)
         parameters['user_id'] = ','.join(["%s" % u for u in uids])
         _json = self._FetchUrl(url, parameters=parameters)
-        print _json
         data = json.loads(_json)
         error = self._ParseError(data)
         if error is not None:
-            print error
-            exit()
+            if error.find("Rate limit") == 0:
+                print "Rate limit"
+                exit(1)
         return [self._ParseResult(u) for u in data]
 
     def GetFollowerIDs(self, cursor=-1):
@@ -67,16 +67,15 @@ class TwitterHandler:
         data = json.loads(_json)
         error = self._ParseError(data)
         if error is not None:
-            print error
-            exit()
+            if error.find("Rate limit") == 0:
+                print "Rate limit"
+                exit(1)
         return data['ids']
 
     def PostDirectMessage(self, user, text):
         url  = 'https://api.twitter.com/1/direct_messages/new.json'
         data = {'text': text, 'user': user}
         _json = self._FetchUrl(url, post_data=data)
-        print data
-        print _json
         return _json
 
     def PostUpdate(self, status):
@@ -95,7 +94,10 @@ class TwitterHandler:
 
     def _ParseResult(self, user):
         data = {}
-        data['id'] = user.get('id', None)
+        try:
+	    data['id'] = user.get('id', None)
+        except:
+            data['id'] = None
         data['screen_name'] = user.get('screen_name', None)
         data['created_at'] = user.get('created_at', None)
         data['statuses_count'] = user.get('statuses_count', None)
@@ -173,7 +175,6 @@ class FilesHandler:
             json_data.close()
         except:
             print "get_json_from_file error"
-            exit()
         return data
     
     def get_user_info(self, user_id):
@@ -214,32 +215,36 @@ class Calculate:
     def __init__(self):
         ids_file = ROOT_PATH + '/ids.json'
         self.fh = FilesHandler()
-        self.th = TwitterHandler()
+        self.bot = 0
+        self.th = TwitterHandler(self.bot)
         self.th_w = TwitterHandler()
         self.requests = 0
-        self.bot = 0
         self.ids = self.fh.get_json_from_file(ids_file)
         followersIDs = self.th.GetFollowerIDs()
         self.requests += 1
-        add_new = 0
-        for follower in followersIDs:
-            there_is = 0
-            for user in self.ids:
-                if follower == user:
-                    there_is = 1
-                    break
-            if there_is == 0:
-                add_new = 1
-                self.ids.append(follower)
-        if add_new == 1:
-            self.fh.save_ids(ids_file, self.ids)
+
+        new = self.ids + followersIDs
+        self.ids = list(set(new))
+
+#        add_new = 0
+#        for follower in followersIDs:
+#            there_is = 0
+#            for user in self.ids:
+#                if follower == user:
+#                    there_is = 1
+#                    break
+#            if there_is == 0:
+#                add_new = 1
+#                self.ids.append(follower)
+#        if add_new == 1:
+        self.fh.save_ids(ids_file, self.ids)
 
     def do_calculate(self):
         users_count = len(self.ids)
         req_count = ceil(users_count/100.0)
         i = 0
         while i < req_count:
-            mod_req = self.requests % 350
+            mod_req = self.requests % 340
             if mod_req == 0:
                 self.bot += 1
                 self.th = TwitterHandler(self.bot)
@@ -256,11 +261,16 @@ class Calculate:
             
     def checking_birthday(self, user, user_data):
         parse_created_at = rfc822.parsedate(user['created_at'])
-        dt = datetime.datetime.now()
+        dt = datetime.datetime.utcnow()
+        check = 0
         if dt.strftime('%m%d') == time.strftime("%m%d", parse_created_at):
-            check = int(dt.strftime('%Y')) - int(time.strftime("%Y", parse_created_at))
-        else:
-            check = 0
+            indent = 8 # 8 hours to check
+            i = 0
+            while i <= indent:
+                hours_back = int(dt.strftime('%H')) - i
+                if hours_back == int(time.strftime("%H", parse_created_at)):
+                    check = int(dt.strftime('%Y')) - int(time.strftime("%Y", parse_created_at))
+                i += 1
         self._post("y", check, user, user_data)
 
     def checking_statuses(self, user, user_data):
@@ -277,6 +287,7 @@ class Calculate:
             length_mod = len(str(number))
             mod = "1" + "0"*(length_mod - 1)
             mod = int(mod)
+            indent = mod/(10 * (length_mod - 1))
             while i < indent:
                 i += 1
                 result = number + i
@@ -296,12 +307,25 @@ class Calculate:
                 elif type == "y":
                     template = "birthday"
                 user_data[type] = check
-                self.fh.save_info_to_file(user_id, user_data)
                 message = self.fh.get_template(template, user['screen_name'], check)
                 if user_data['dm'] == "private":
-                    self.th_w.PostDirectMessage(user_id, message)
+                    try:
+                        _check_post = self.th_w.PostDirectMessage(user_id, message)
+                        if _check_post.has_key("error"):
+                            pass
+                        else:
+                            self.fh.save_info_to_file(user_id, user_data)
+                    except:
+                        print "not send dm to " + str(user['screen_name']) + "(" + str(user['id']) + ")"
                 else:
-                    self.th_w.PostUpdate(message)
+                    try:
+                        _check_post = self.th_w.PostUpdate(message)
+                        if _check_post.has_key("error"):
+                            pass
+                        else:
+                            self.fh.save_info_to_file(user_id, user_data)
+                    except:
+                        print "not send update to " + str(user['screen_name']) + "(" + str(user['id']) + ")"
 
 
 if __name__ == '__main__':
