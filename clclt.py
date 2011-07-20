@@ -75,14 +75,14 @@ class TwitterHandler:
     def PostDirectMessage(self, user, text):
         url  = 'https://api.twitter.com/1/direct_messages/new.json'
         data = {'text': text, 'user': user}
-        _json = self._FetchUrl(url, post_data=data)
+        _json = json.loads(self._FetchUrl(url, post_data=data))
         return _json
 
     def PostUpdate(self, status):
         url = 'https://api.twitter.com/1/statuses/update.json'
         u_status = unicode(status, 'utf-8')
         data = {'status': status}
-        _json = self._FetchUrl(url, post_data=data)
+        _json = json.loads(self._FetchUrl(url, post_data=data))
         return _json
 
     def _ParseError(self, data):
@@ -186,8 +186,10 @@ class FilesHandler:
     def save_info_to_file(self, user_id, user_data):
         user_file = ROOT_PATH + '/data/' + str(user_id) + ".json"
         try:
+            print user_file
             file = open(user_file, 'w')
             data = json.dumps(user_data)
+            print data
             file.write(data)
             file.close()
         except:
@@ -225,18 +227,7 @@ class Calculate:
 
         new = self.ids + followersIDs
         self.ids = list(set(new))
-
-#        add_new = 0
-#        for follower in followersIDs:
-#            there_is = 0
-#            for user in self.ids:
-#                if follower == user:
-#                    there_is = 1
-#                    break
-#            if there_is == 0:
-#                add_new = 1
-#                self.ids.append(follower)
-#        if add_new == 1:
+        self.ids.reverse()
         self.fh.save_ids(ids_file, self.ids)
 
     def do_calculate(self):
@@ -245,6 +236,7 @@ class Calculate:
         i = 0
         while i < req_count:
             mod_req = self.requests % 340
+            print self.requests
             if mod_req == 0:
                 self.bot += 1
                 self.th = TwitterHandler(self.bot)
@@ -309,23 +301,17 @@ class Calculate:
                 user_data[type] = check
                 message = self.fh.get_template(template, user['screen_name'], check)
                 if user_data['dm'] == "private":
-                    try:
-                        _check_post = self.th_w.PostDirectMessage(user_id, message)
-                        if _check_post.has_key("error"):
-                            pass
-                        else:
-                            self.fh.save_info_to_file(user_id, user_data)
-                    except:
-                        print "not send dm to " + str(user['screen_name']) + "(" + str(user['id']) + ")"
+                    _check_post = self.th_w.PostDirectMessage(user_id, message)
+                    if _check_post.has_key("error"):
+                        print _check_post
+                    else:
+                        self.fh.save_info_to_file(user_id, user_data)
                 else:
-                    try:
-                        _check_post = self.th_w.PostUpdate(message)
-                        if _check_post.has_key("error"):
-                            pass
-                        else:
-                            self.fh.save_info_to_file(user_id, user_data)
-                    except:
-                        print "not send update to " + str(user['screen_name']) + "(" + str(user['id']) + ")"
+                    _check_post = self.th_w.PostUpdate(message)
+                    if _check_post.has_key("error"):
+                        print _check_post
+                    else:
+                        self.fh.save_info_to_file(user_id, user_data)
 
 
 if __name__ == '__main__':
