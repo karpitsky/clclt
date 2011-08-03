@@ -50,7 +50,11 @@ class TwitterHandler:
         uids.extend(user_id)
         parameters['user_id'] = ','.join(["%s" % u for u in uids])
         _json = self._FetchUrl(url, parameters=parameters)
-        data = json.loads(_json)
+        print _json
+        try:
+            data = json.loads(_json)
+        except:
+            data = {}
         error = self._ParseError(data)
         if error is not None:
             if error.find("Rate limit") == 0:
@@ -206,7 +210,10 @@ class FilesHandler:
     def get_template(self, template_type, user_name, number, lang=LANG):
         template_file = TEMPLATE_PATH + template_type + "_" + lang + ".data"
         if template_type == "birthday":
-            y = ("", '1 год', '2 года', '3 года', '4 года', '5 лет', '6 лет', '7 лет', '8 лет', '9 лет', '10 лет')
+            if lang == "ru":
+                y = ("", '1 год', '2 года', '3 года', '4 года', '5 лет', '6 лет', '7 лет', '8 лет', '9 лет', '10 лет')
+            elif lang == "en":
+                y = ("", '1 year', '2 years', '3 years', '4 years', '5 years', '6 years', '7 years', '8 years', '9 years', '10 years')
             number = y[number]
         lines = open(template_file).read().splitlines()
         line = random.choice(lines)
@@ -246,12 +253,15 @@ class Calculate:
             for user in part_of_100_data:
                 user_data = self.fh.get_user_info(user['id'])
                 if user_data['sub'] != "nofollow":
-                    self.checking_birthday(user, user_data)
-                    self.checking_statuses(user, user_data)
-                    self.checking_followers(user, user_data)
+                    lang = "ru"
+                    if user_data.has_key("lang"):
+                        lang = user_data["lang"]
+                    self.checking_birthday(user, user_data, lang)
+                    self.checking_statuses(user, user_data, lang)
+                    self.checking_followers(user, user_data, lang)
             i += 1
             
-    def checking_birthday(self, user, user_data):
+    def checking_birthday(self, user, user_data, lang):
         parse_created_at = rfc822.parsedate(user['created_at'])
         dt = datetime.datetime.utcnow()
         check = 0
@@ -263,15 +273,15 @@ class Calculate:
                 if hours_back == int(time.strftime("%H", parse_created_at)):
                     check = int(dt.strftime('%Y')) - int(time.strftime("%Y", parse_created_at))
                 i += 1
-        self._post("y", check, user, user_data)
+        self._post("y", check, user, user_data, lang)
 
-    def checking_statuses(self, user, user_data):
+    def checking_statuses(self, user, user_data, lang):
         check = self._roundness(user['statuses_count'], user['id'], 900)
-        self._post("s", check, user, user_data)
+        self._post("s", check, user, user_data, lang)
 
-    def checking_followers(self, user, user_data):
+    def checking_followers(self, user, user_data, lang):
         check = self._roundness(user['followers_count'], user['id'], 100)
-        self._post("f", check, user, user_data)
+        self._post("f", check, user, user_data, lang)
 
     def _roundness(self, number, user, min, indent=8):
         if number > min:
@@ -288,7 +298,7 @@ class Calculate:
                     return result
         return False
 
-    def _post(self, type, check, user, user_data):
+    def _post(self, type, check, user, user_data, lang):
         if check:
             user_id = user['id']
             if check != user_data[type]:
@@ -299,7 +309,7 @@ class Calculate:
                 elif type == "y":
                     template = "birthday"
                 user_data[type] = check
-                message = self.fh.get_template(template, user['screen_name'], check)
+                message = self.fh.get_template(template, user['screen_name'], check, lang)
                 if user_data['dm'] == "private":
                     _check_post = self.th_w.PostDirectMessage(user_id, message)
                     if _check_post.has_key("error"):
